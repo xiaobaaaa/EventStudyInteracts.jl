@@ -217,7 +217,7 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     fekeys = result.fekeys
     coef_names = [string(x) for x in dvarlist]
     # coef_names = coefnames
-    response_name = result.yname
+    response_name = responsename(result)
     # response_name, coef_names = coefnames(formula_schema)
 
     formula_origin = formula1
