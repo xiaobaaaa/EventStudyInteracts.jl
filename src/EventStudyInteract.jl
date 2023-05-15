@@ -18,7 +18,7 @@ struct EventStudyInteract <: RegressionModel
 
 
     coefnames::Vector       # Name of coefficients
-    yname::Union{String, Symbol} # Name of dependent variable
+    responsename::Union{String, Symbol} # Name of dependent variable
     formula::FormulaTerm        # Original formula
     formula_schema::FormulaTerm # Schema for predict
     contrasts::Dict
@@ -45,7 +45,7 @@ end
 
 StatsAPI.coef(m::EventStudyInteract) = m.coef
 StatsAPI.coefnames(m::EventStudyInteract) = m.coefnames
-StatsAPI.responsename(m::EventStudyInteract) = m.yname
+StatsAPI.responsename(m::EventStudyInteract) = m.responsename
 StatsAPI.vcov(m::EventStudyInteract) = m.vcov
 StatsAPI.nobs(m::EventStudyInteract) = m.nobs
 StatsAPI.dof(m::EventStudyInteract) = m.dof
