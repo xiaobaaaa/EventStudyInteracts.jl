@@ -1,7 +1,7 @@
 name = "EventStudyInteracts"
 uuid = "f9322581-1cea-4fd6-9e8e-2ae6cc4618ce"
 authors = ["xq "]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
