@@ -217,7 +217,7 @@ function mycoefplot(m)
     Plots.hline!([0,],linestyle = :dash,linecolor=:black,linewidth=:2)
 end
 
-plot1 = mycoefplot(m1)1 = mycoefplot(m1)
+plot1 = mycoefplot(m1)
 ```
 
 - **Binning**. Pre-treatment effects seem relatively constant, which might suggest binning the many leads.  TODO: current implementation of bins does not follow Sun and Abraham (2020) exactly due to coding challenge.  But it is valid if effects in the bin are constant for each cohort.
