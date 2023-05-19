@@ -248,7 +248,25 @@ control_cohort2 = :last_union
 m3 = eventreg(df[(.!ismissing.(df.first_union)) .& (df.year .< 88), :], formula1, rel_varlist2, control_cohort1, cohort1, vcov1)
 ```
 
-- **Aggregating event study estimates**. In Stata one can use `lincom` looks for coefficients and variance covariance matrix stored in e(b) and e(V). There is no package like ``lincom`` in Julia. I am still working on this.
+- **Aggregating event study estimates**. In Stata one can use `lincom` looks for coefficients and variance covariance matrix stored in e(b) and e(V). There is no package like ``lincom`` in Julia. I write another package [`LinComs.jl`]https://github.com/xiaobaaaa/LinComs.jl) to do this. You can refer to the following code after estimating the results.
+
+```julia
+rel_varlist1[20:38]
+expr = Expr(:call, :/, Expr(:call, :+, rel_varlist1...), length(rel_varlist1))
+# Or,
+expr = :((g_20 + g_19 + g_18 + g_17 + g_16 + g_15 + g_14 + g_13 + g_12 + g_11 + g_10 + g_9 + g_8 + g_7 + g_6 + g_5 + g_4 + g_3 + g_2 + g0 + g1 + g2 + g3 + g4 + g5 + g6 + g7 + g8 + g9 + g10 + g11 + g12 + g13 + g14 + g15 + g16 + g17 + g18) / 38)
+# And then,
+lincom(m1,expr)
+# Returns,
+                                      lincom                                      
+==================================================================================
+ln_wage            |    Estimate Std.Error   t value Pr(>|t|)  Lower 95% Upper 95%
+----------------------------------------------------------------------------------
+Linear Combination | -0.00369359 0.0131072 -0.281798    0.778 -0.0293907 0.0220035
+==================================================================================
+```
+
+The results obtained from LinComs.jl can also be used with RegressionTables.jl to generate Regression Tables.
   
 - **Compare event study estimates for subsamples**. Suppose we want to compare the average effect over the first five years of joining the union between college graduates and non-college graduates. We can first estimate their separate effects by interacting the relative time indicators with icator of college graduates:
   
