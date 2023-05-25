@@ -50,7 +50,7 @@ result =  reg(df,
 The syntax is similar to [`FixedEffectModels.jl`](https://github.com/FixedEffects/FixedEffectModels.jl) （You must use a version higher than v1.9.1），but users need to specify separately `rel_varlist::Vector{Symbol}`, `control_cohort::Symbol`, and `cohort::Symbol`. The `rel_varlist` is the list of relative time indicators as you would have included in the canonical two-way fixed effects regression. The `rel_varlist` must be defined as a `Vector{Symbol}`.
 
 ```
-rel_varlist = Symbol[:g_4, :g_3, :g_2, :g0, :g1, :g2, :3]
+rel_varlist = Symbol[:g_4, :g_3, :g_2, :g0, :g1, :g2, :g3]
 ```
 
 See illustration for an example of generating these relative time indicators. The relative time indicators should take the value of zero for never treated units. Users should shape their dataset to a long format where each observation is at the unit-time level. See illustration for an example of specifying the syntax. The syntax is similar to [`FixedEffectModels.jl`](https://github.com/FixedEffects/FixedEffectModels.jl) in specifying fixed effects and the type of standard error reported.
