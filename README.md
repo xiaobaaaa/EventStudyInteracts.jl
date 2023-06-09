@@ -75,7 +75,7 @@ using CUDA
 using Plots
 
 # Load the 1968 extract of the National Longitudinal Survey of Young Women and Mature Women.
-df =DataFrame(readstat(EventStudyInteracts\dataset\nlswork.dta"))
+df =DataFrame(readstat("EventStudyInteracts\dataset\nlswork.dta"))
 
 # Code the cohort categorical variable based on when the individual first joined the union, which will be inputted in cohort(varname).
 
