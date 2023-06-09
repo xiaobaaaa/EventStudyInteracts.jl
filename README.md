@@ -68,7 +68,7 @@ The `cohort` must be defined as a `Symbol`, which is a categorical variable that
 ```julia
 using DataFrames
 using FixedEffectModels
-using EventStudyInteract
+using EventStudyInteracts
 using ReadStatTables
 using RegressionTables
 using CUDA
