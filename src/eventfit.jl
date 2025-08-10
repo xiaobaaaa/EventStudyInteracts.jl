@@ -14,9 +14,8 @@ function eventreg(@nospecialize(df),
     @nospecialize(maxiter::Integer = 10000),
     @nospecialize(drop_singletons::Bool = true),
     @nospecialize(progress_bar::Bool = true),
-    @nospecialize(dof_add::Integer = 0),
     @nospecialize(subset::Union{Nothing, AbstractVector} = nothing))
-    StatsAPI.fit(EventStudyInteract, formula, df, rel_varlist, control_cohort, cohort, vcov; contrasts = contrasts, weights = weights, save = save, method = method, nthreads = nthreads, double_precision = double_precision, tol = tol, maxiter = maxiter, drop_singletons = drop_singletons, progress_bar = progress_bar, dof_add = dof_add, subset = subset)
+    StatsAPI.fit(EventStudyInteract, formula, df, rel_varlist, control_cohort, cohort, vcov; contrasts = contrasts, weights = weights, save = save, method = method, nthreads = nthreads, double_precision = double_precision, tol = tol, maxiter = maxiter, drop_singletons = drop_singletons, progress_bar = progress_bar, subset = subset)
 end
   
 function StatsAPI.fit(::Type{EventStudyInteract},     
@@ -36,7 +35,6 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     @nospecialize(maxiter::Integer = 10000),
     @nospecialize(drop_singletons::Bool = true),
     @nospecialize(progress_bar::Bool = true),
-    @nospecialize(dof_add::Integer = 0),
     @nospecialize(subset::Union{Nothing, AbstractVector} = nothing))
 
     df = DataFrame(df; copycols = false)
@@ -93,7 +91,6 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     maxiter = maxiter,
     drop_singletons = drop_singletons,
     progress_bar = progress_bar,
-    dof_add = dof_add,
     subset = subset)
 
     #Caculate the weights.
