@@ -15,24 +15,76 @@ As introduced in the Stata package [`eventstudyinteract`](https://github.com/ls
   
 - I used [`FixedEffectModels.jl`](https://github.com/FixedEffects/FixedEffectModels.jl) directly for estimation and I am grateful to the author of this package. Other parts of this package, such as reporting of estimation results, also refer to [`FixedEffectModels.jl`](https://github.com/FixedEffects/FixedEffectModels.jl).
   
-- The Stata package [`eventstudyinteract`](https://github.com/lsun20/EventStudyInteract) is very flexible, and one important feature is that it can compare event study estimates for subsamples, i.e. perform heterogeneous estimation. I did not find this feature in the existing Julia package [DiffinDiffs.jl](https://github.com/JuliaDiffinDiffs/DiffinDiffs.jl) or the  R packages [`fixest`](https://lrberge.github.io/fixest/). I think the design of the Stata package [`eventstudyinteract`](https://github.com/lsun20/EventStudyInteract) is more user-friendly.
+- The Stata package [`eventstudyinteract`](https://github.com/lsun20/EventStudyInteract) is very flexible, and one important feature is that it can compare event study estimates for subsamples, i.e. perform heterogeneous estimation. [`fixest`](https://lrberge.github.io/fixest/) can estimate Sun-Abraham specifications through `sunab(...)`, but I still find the workflow design of the Stata package more user-friendly for these heterogeneous-estimation use cases.
   
 - This package fully supports the features of [`FixedEffectModels.jl`](https://github.com/FixedEffects/FixedEffectModels.jl), such as using GPU for estimation. The syntax of this package is similar to that of [`FixedEffectModels.jl`](https://github.com/FixedEffects/FixedEffectModels.jl).
   
 
 ## Installation
 
-The package is registered in the [`General`](https://github.com/JuliaRegistries/General) registry and so can be installed at the REPL with `] add EventStudyInteracts`.
+`EventStudyInteracts.jl` is registered in the [`General`](https://github.com/JuliaRegistries/General) registry.
+
+The package is currently maintained against:
+
+- `Julia 1.10+`
+- `FixedEffectModels.jl 1.13`
+- `Vcov.jl 0.8`
+
+You can install it at the REPL with `] add EventStudyInteracts`.
+
+For local development in this repository, run `julia --project=. -e "using Pkg; Pkg.instantiate()"`.
+
+For formatted regression tables, pair this package with [RegressionTables.jl](https://github.com/jmboehm/RegressionTables.jl). The examples below use the current `v0.7.x` API; recent releases are listed on the official [`RegressionTables.jl` releases page](https://github.com/jmboehm/RegressionTables.jl/releases).
+
+## Maintenance
+
+This repository includes separate maintenance automation in addition to CI:
+
+- `CI` runs package tests on `main`.
+- `CompatHelper` watches dependency compat updates.
+- `TagBot` handles tags and releases.
+- `Maintenance` runs weekly and checks whether `FixedEffectModels.jl` has a newer upstream release, runs `Julia 1.10` tests, runs a `Julia` stable import smoke test, and writes a maintenance report.
+- The main test suite also includes a `RegressionTables.jl` smoke test so table output stays visible during dependency upgrades.
+
+The maintenance check compares the `nlswork` example against the checked-in Stata baseline in [`reference/nlswork_stata.toml`](reference/nlswork_stata.toml). Any additional `*.toml` file placed in [`reference/`](reference/) is picked up automatically, so you can add `reference/boss_reference.toml` to compare against your boss's saved results as well.
+
+If you want `CompatHelper` to open PRs automatically on GitHub, add the repository secret `COMPATHELPER_PRIV`.
+
+### Codex Workflow
+
+This repository is maintained with `Codex`, using the current `GPT-5` coding model together with the local `Julia`, `R`, and `Stata` toolchain on this machine.
+
+The default maintenance workflow is:
+
+1. Weekly monitoring: `Maintenance` checks upstream dependency drift, especially `FixedEffectModels.jl`, and writes a machine-generated report.
+2. Upgrade trigger: when `FixedEffectModels.jl` or another important dependency changes, `Codex` updates compat bounds, adapts the package code, and reruns the local validation workflow.
+3. Validation gate: the change is not considered complete until `Pkg.test()` passes, the `RegressionTables.jl` smoke test passes, and the checked-in Stata reference comparison passes.
+4. Documentation refresh: if behavior, compat, or benchmark results change, `README.md`, benchmark artifacts, and reference files are updated in the same maintenance cycle.
+5. Optional external parity: if [`reference/boss_reference.toml`](reference/) is present, the same workflow also checks the package against your boss's saved output.
+
+This workflow is intended to guarantee the following:
+
+- `EventStudyInteracts.jl` remains compatible with `Julia 1.10 LTS`, with an additional stable-version import smoke check.
+- The `nlswork` reference example remains numerically close to the checked-in Stata baseline, within the tolerances stored in [`reference/nlswork_stata.toml`](reference/nlswork_stata.toml).
+- `RegressionTables.jl` integration keeps working as part of the main automated test suite.
+- README performance claims are backed by checked-in scripts and saved benchmark outputs under [`benchmark/`](benchmark/).
+
+This workflow does **not** guarantee the following:
+
+- Exact equality for all summary metadata across package versions. Values such as degrees of freedom, adjusted `R2`, or iteration counts can change slightly across `FixedEffectModels.jl` releases even when the core coefficient vector remains aligned.
+- Equality to any outside result that is not checked into [`reference/`](reference/).
+- Fully automatic release decisions. `Codex` can implement and validate changes, but versioning, tagging, and registration still follow the normal repository release process.
 
 ## Syntax
 
 ```julia
-result =  reg(df,    
+result = eventreg(
+    df,
     formula,
     rel_varlist::Vector{Symbol},
     control_cohort::Symbol,
     cohort::Symbol,
-    vcov,
+    vcov;
     contrasts = contrasts,
     weights = weights,
     save = save,
@@ -44,10 +96,13 @@ result =  reg(df,
     drop_singletons = drop_singletons,
     progress_bar = progress_bar,
     dof_add = dof_add,
-    subset = subset)
+    subset = subset,
+)
 ```
 
-The syntax is similar to [`FixedEffectModels.jl`](https://github.com/FixedEffects/FixedEffectModels.jl) （You must use a version higher than v1.9.1），but users need to specify separately `rel_varlist::Vector{Symbol}`, `control_cohort::Symbol`, and `cohort::Symbol`. The `rel_varlist` is the list of relative time indicators as you would have included in the canonical two-way fixed effects regression. The `rel_varlist` must be defined as a `Vector{Symbol}`.
+The syntax is similar to [`FixedEffectModels.jl`](https://github.com/FixedEffects/FixedEffectModels.jl), and the current package line is tested against `FixedEffectModels.jl 1.13` on `Julia 1.10+`. Users need to specify `rel_varlist::Vector{Symbol}`, `control_cohort::Symbol`, and `cohort::Symbol` explicitly. The `rel_varlist` is the list of relative time indicators as you would have included in the canonical two-way fixed effects regression. The `rel_varlist` must be defined as a `Vector{Symbol}`.
+
+`dof_add` is still accepted for backward compatibility, but it is currently ignored when this package is used with `FixedEffectModels.jl 1.13+`.
 
 ```
 rel_varlist = Symbol[:g_4, :g_3, :g_2, :g0, :g1, :g2, :g3]
@@ -62,7 +117,6 @@ The `control_cohort` must be defined as a `Symbol`, which is a binary variable t
 The `cohort` must be defined as a `Symbol`, which is a categorical variable that corresponds to the initial treatment timing of each unit. If there are units that receive multiple treatments, [Sun and Abraham (2021)](https://www.sciencedirect.com/science/article/abs/pii/S030440762030378X) defines the initial treatment timing to be based on the first treatment. This categorical variable should be set to be **missing** for **never treated** units.
 
 ## Examples
-
 - You can download the `nlswork.dta` data from the repository, which is the example data used by [`eventstudyinteract`](https://github.com/lsun20/EventStudyInteract), and the method of generating variables is the same as that of [`eventstudyinteract`](https://github.com/lsun20/EventStudyInteract).
 
 ```julia
@@ -75,7 +129,7 @@ using CUDA
 using Plots
 
 # Load the 1968 extract of the National Longitudinal Survey of Young Women and Mature Women.
-df =DataFrame(readstat("EventStudyInteracts\dataset\nlswork.dta"))
+df = DataFrame(readstat(joinpath("dataset", "nlswork.dta")))
 
 # Code the cohort categorical variable based on when the individual first joined the union, which will be inputted in cohort(varname).
 
@@ -195,6 +249,8 @@ m1 = eventreg(df, formula1, rel_varlist1, control_cohort1, cohort1, vcov1)
 # ========================================================================
 ```
 
+The repository maintenance workflow checks this example automatically against the checked-in Stata reference. The coefficient vector is expected to match very closely; summary metadata such as degrees of freedom, adjusted `R2`, or iteration counts can move slightly across `FixedEffectModels.jl` versions.
+
 - **Event study plots**. We may define a ``coefplot`` function for an event study plot.
 
 ```julia
@@ -248,7 +304,7 @@ control_cohort2 = :last_union
 m3 = eventreg(df[(.!ismissing.(df.first_union)) .& (df.year .< 88), :], formula1, rel_varlist2, control_cohort1, cohort1, vcov1)
 ```
 
-- **Aggregating event study estimates**. In Stata one can use `lincom` looks for coefficients and variance covariance matrix stored in e(b) and e(V). There is no package like ``lincom`` in Julia. I write another package [`LinComs.jl`]https://github.com/xiaobaaaa/LinComs.jl) to do this. You can refer to the following code after estimating the results.
+- **Aggregating event study estimates**. In Stata one can use `lincom` looks for coefficients and variance covariance matrix stored in e(b) and e(V). There is no package like ``lincom`` in Julia. I wrote another package [`LinComs.jl`](https://github.com/xiaobaaaa/LinComs.jl) to do this. You can refer to the following code after estimating the results.
 
 ```julia
 rel_varlist1[20:38]
@@ -266,7 +322,7 @@ Linear Combination | -0.00369359 0.0131072 -0.281798    0.778 -0.0293907 0.02200
 ==================================================================================
 ```
 
-The results obtained from LinComs.jl can also be used with RegressionTables.jl to generate Regression Tables.
+The results obtained from [`LinComs.jl`](https://github.com/xiaobaaaa/LinComs.jl) can also be used with [`RegressionTables.jl`](https://github.com/jmboehm/RegressionTables.jl) to generate regression tables.
   
 - **Compare event study estimates for subsamples**. Suppose we want to compare the average effect over the first five years of joining the union between college graduates and non-college graduates. We can first estimate their separate effects by interacting the relative time indicators with icator of college graduates:
   
@@ -311,22 +367,39 @@ m4 = eventreg(df, formula1, rel_varlist3, control_cohort1, cohort1, vcov1)
 
 ## Output
 
-`eventreg` returns a light object like ``FixedEffectModels.reg``. It is composed of the vector of coefficients & the covariance matrix (use coef, coefnames, vcov on the output of reg) a boolean vector reporting rows used in the estimation a set of scalars (number of observations, the degree of freedoms, r2, etc).
+`eventreg` returns a lightweight regression-model object with the coefficient vector, covariance matrix, estimation-sample indicator, and summary statistics. It supports `coef`, `coefnames`, `vcov`, `confint`, `coeftable`, `residuals`, and related `StatsAPI` accessors.
 
-We can use RegressionTables.jl to get the Regression Tables.
+We can use [`RegressionTables.jl`](https://github.com/jmboehm/RegressionTables.jl) to get regression tables. The examples below follow the current `render = AsciiTable()` / `HtmlTable()` interface documented by the package.
 
 ```julia
-regtable(m1, m2, m3,m4; renderSettings = asciiOutput(), estim_decoration=make_estim_decorator([0.01, 0.05, 0.1]))
+regtable(
+    m1,
+    m2,
+    m3,
+    m4;
+    render = AsciiTable(),
+    regression_statistics = [Nobs, R2, R2Within],
+    estim_decoration = make_estim_decorator([0.01, 0.05, 0.1]),
+)
 
-regtable(m1, m2, m3,m4; renderSettings = htmlOutput("base_reg.html"), estim_decoration=make_estim_decorator([0.01, 0.05, 0.1]))
+regtable(
+    m1,
+    m2,
+    m3,
+    m4;
+    render = HtmlTable(),
+    file = "base_reg.html",
+    regression_statistics = [Nobs, R2, R2Within],
+    estim_decoration = make_estim_decorator([0.01, 0.05, 0.1]),
+)
 ```
 
 ## Use other features of FixedEffectModels.jl
 
-We can also use other features of FixedEffectModels.jl, such as using GPU for estimation.
+We can also use other features of FixedEffectModels.jl, such as using GPU for estimation. With current `FixedEffectModels.jl` versions, use `method = :CUDA` (or `:Metal` on supported Apple hardware).
 
 ```julia
-eventreg(df, formula1, rel_varlist1, control_cohort1, cohort1, vcov1,  method = :gpu, double_precision = false)
+eventreg(df, formula1, rel_varlist1, control_cohort1, cohort1, vcov1, method = :CUDA, double_precision = false)
 ```
 
 ## Another example
@@ -415,109 +488,27 @@ plot2 = mycoefplot(m5)
 ```
 
 ## Performance
-EventStudyInteracts.jl is **3.69** times faster than Stata when controlling only for id and year fixed effects with a sample size of 2 million observations. EventStudyInteracts.jl is **4.75** times faster than Stata when controlling for an additional two fixed effects. As the sample size increases and more fixed effects are controlled for, performance improvement should be even greater. Furthermore, EventStudyInteracts.jl can also utilize CUDA. Many thanks to FixedEffectModels.jl for its outstanding performance!
 
-- Julia Codes
-  
-  ```julia
-  
-  using CSV, DataFrames, Random, Plots, FixedEffectModels, EventStudyInteracts
-  
-  units = 100000
-  start = 1
-  finish = 20
-  nlvls = 5
-  time = finish - start + 1
-  obsv = units * time
-  K=100
-  id1 = rand(1:(obsv/K), obsv)
-  id2 = rand(1:K, obsv)
-  
-  df = DataFrame(id = repeat(1:units, inner=time), t = repeat(start:finish, outer=units), id1 = id1, id2 = id2)
-  
-  Random.seed!(20211222)
-  
-  df.Y .= 0 # outcome variable
-  df.D .= 0 # intervention variable
-  df.cohort .= repeat([rand(0:nlvls) for i in 1:units], inner=time) # treatment cohort
-  
-  effect = [rand(2:10) for i in unique(df.cohort)]
-  first_treat = [rand(start:(finish + 20)) for i in unique(df.cohort)]
-  
-  df.effect = similar(df.cohort)
-  df.first_treat = similar(df.cohort, Union{Int64, Missing})
-  
-  for i in 0:nlvls
-      df.effect[df.cohort .== i] .= effect[i+1]
-      df.first_treat[df.cohort .== i] .= first_treat[i+1]
-  end
-  
-  df.first_treat[df.first_treat .> finish] .= missing
-  
-  
-  df.D = ifelse.(coalesce.(df.t .>= df.first_treat, false), 1, 0)
-  df.rel_time .= df.t .- df.first_treat
-  df.Y = df.t .+ ifelse.(df.D .== 1, df.effect .* df.rel_time, 0) .+ randn(nrow(df))
-  
-  plot(df.t, df.Y, label=false)
-  
-  
-  df.never_treat = ismissing.(df.first_treat)
-  
-  # We will consider the dynamic effect of union status on income. We first generate these relative time indicators, and leave out the distant leads due to few observations. Implicitly this assumes that effects outside the lead windows are zero.
-  
-  relmin = abs(minimum(skipmissing(df.rel_time)))
-  relmax = abs(maximum(skipmissing(df.rel_time)))
-  
-  for k in relmin:-1:2
-      df[!, Symbol("g_$k")] = Int.(coalesce.(df.rel_time .== -k, false))
-  end
-  
-  for k in 0:relmax
-      df[!, Symbol("g$k")] = Int.(coalesce.(df.rel_time .== k, false))
-  end
-  
-  absorb = [:id,:t]
-  
-  formula1 = term(:Y) ~ sum(fe.(term.(absorb)))
-  
-  rel_varlist1 = Symbol[]
-  
-  for i in relmin:-1:2
-      push!(rel_varlist1, Symbol("g_"*string(i)))
-  end
-  
-  for i in 0:relmax
-      push!(rel_varlist1, Symbol("g"*string(i)))
-  end
-  
-  control_cohort1 = :never_treat
-  
-  cohort1 = :first_treat
-  
-  CSV.write("bench.csv", df)
-  
-  m1 = eventreg(df, formula1, rel_varlist1, control_cohort1, cohort1)
-  @time m1 = eventreg(df, formula1, rel_varlist1, control_cohort1, cohort1)
-  # 76.965495 seconds (395.81 k allocations: 218.291 GiB, 23.78% gc time)
-  absorb = [:id,:id1,:id2,:t]
-  formula2 = term(:Y) ~ sum(fe.(term.(absorb)))
-  @time m2 = eventreg(df, formula2, rel_varlist1, control_cohort1, cohort1)
-  # 88.459680 seconds (3.09 M allocations: 218.534 GiB, 21.19% gc time, 0.86% compilation time)
-  ```
-  
-- Stata Codes
-  
-  ```stata
-  import delimited "~\EventStudyInteracts\benchmark\bench.csv", clear
-  timer clear
-  set rmsg on
-  gen never_treat1 = never_treat=="true"
-  eventstudyinteract y g_* g0-g16, cohort(first_treat) control_cohort(never_treat1) absorb(i.id i.t)
-  r; t=284.17
-  eventstudyinteract y g_* g0-g16, cohort(first_treat) control_cohort(never_treat1) absorb(i.id i.id1 i.id2 i.t)
-  r; t=420.61
-  ```
+This repository now ships a reproducible benchmark workflow in [`benchmark/README.md`](benchmark/README.md). It generates one synthetic Sun-Abraham style panel, runs the Julia / R / Stata implementations locally, and renders the chart below from the saved timing CSVs.
+
+![Event study speed comparison](benchmark/speed_comparison.svg)
+
+The current checked-in figure was regenerated on this Windows machine with `10,000` observations (`500` units x `20` periods), `24` Julia threads, `24` fixest threads, and a matched Sun-Abraham event window (`ref.p = c(-1, -17)` on the `fixest` side). Julia timings exclude first-run JIT compilation by doing one warmup estimation before the timed run.
+
+- `id + t`: `EventStudyInteracts.jl` = `4.83s`, `fixest` = `0.41s`, `eventstudyinteract` = `15.88s`
+- `id + id1 + id2 + t`: `EventStudyInteracts.jl` = `4.84s`, `fixest` = `0.43s`, `eventstudyinteract` = `16.70s`
+- On this checked-in 10k benchmark, `EventStudyInteracts.jl` is `3.29x` faster than Stata for `id + t` and `3.45x` faster than Stata for `id + id1 + id2 + t`.
+- On this checked-in 10k benchmark, `fixest` is still the fastest of the three implementations.
+- A larger `100,000`-row rerun on the same machine currently gives `EventStudyInteracts.jl` at `54.99s / 49.48s` and `fixest` at `3.22s / 3.30s`, but I am not checking in a new 100k chart until the Stata batch finishes reliably on this machine.
+
+To rerun the benchmark and refresh the figure locally:
+
+```powershell
+./benchmark/run_all.ps1 -Units 5000 -Periods 20
+```
+
+The workflow writes [`benchmark/results_latest.csv`](benchmark/results_latest.csv), [`benchmark/results_latest.md`](benchmark/results_latest.md), and [`benchmark/speed_comparison.svg`](benchmark/speed_comparison.svg).
+
 ## References
 
 [GitHub - FixedEffects/FixedEffectModels.jl: Fast Estimation of Linear Models with IV and High Dimensional Categorical Variables](https://github.com/FixedEffects/FixedEffectModels.jl)
@@ -525,3 +516,6 @@ EventStudyInteracts.jl is **3.69** times faster than Stata when controlling only
 [lsun20/EventStudyInteract (github.com)](https://github.com/lsun20/EventStudyInteract)
 
 [Difference-in-Difference (DiD) | DiD](https://asjadnaqvi.github.io/DiD/)
+
+[fixest](https://lrberge.github.io/fixest/)
+

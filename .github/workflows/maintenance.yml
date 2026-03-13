@@ -1,0 +1,93 @@
+name: Maintenance
+on:
+  schedule:
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    env:
+      COMPATHELPER_PRIV_PRESENT: ${{ secrets.COMPATHELPER_PRIV != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Collect git state
+        id: git_state
+        shell: bash
+        run: |
+          branch="$(git branch --show-current || true)"
+          if [ -z "$branch" ]; then
+            branch="${GITHUB_REF_NAME}"
+          fi
+          dirty="false"
+          if [ -n "$(git status --porcelain)" ]; then
+            dirty="true"
+          fi
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "dirty=$dirty" >> "$GITHUB_OUTPUT"
+      - name: Query latest FixedEffectModels release
+        id: fem_release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const release = await github.rest.repos.getLatestRelease({
+              owner: 'FixedEffects',
+              repo: 'FixedEffectModels.jl',
+            });
+            core.setOutput('tag', release.data.tag_name);
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.10'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.julia/artifacts
+          key: ${{ runner.os }}-maintenance-artifacts-${{ hashFiles('**/Project.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-maintenance-artifacts-
+            ${{ runner.os }}-
+      - name: Run Julia 1.10 maintenance tests
+        id: lts_tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p maintenance-artifacts
+          julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test(coverage=false, test_args=["--reference-report=maintenance-artifacts/reference-report.toml"])'
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - name: Run Julia stable import smoke test
+        id: release_smoke
+        continue-on-error: true
+        shell: bash
+        run: |
+          julia --project=. -e 'using Pkg; Pkg.instantiate(); using EventStudyInteracts, FixedEffectModels; println("release import ok")'
+      - name: Render maintenance report
+        if: always()
+        shell: bash
+        run: |
+          julia --project=. scripts/render_maintenance_report.jl \
+            --output=maintenance-artifacts/maintenance-report.md \
+            --git-branch="${{ steps.git_state.outputs.branch }}" \
+            --git-dirty="${{ steps.git_state.outputs.dirty }}" \
+            --lts-status="${{ steps.lts_tests.outcome }}" \
+            --release-status="${{ steps.release_smoke.outcome }}" \
+            --fem-latest-tag="${{ steps.fem_release.outputs.tag }}" \
+            --reference-report=maintenance-artifacts/reference-report.toml \
+            --compathelper-priv-present="${{ env.COMPATHELPER_PRIV_PRESENT }}"
+      - name: Publish job summary
+        if: always()
+        shell: bash
+        run: cat maintenance-artifacts/maintenance-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload maintenance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maintenance-report-${{ github.run_number }}
+          path: maintenance-artifacts/
+      - name: Mark workflow failed if checks failed
+        if: steps.lts_tests.outcome != 'success' || steps.release_smoke.outcome != 'success'
+        shell: bash
+        run: exit 1

@@ -56,7 +56,7 @@ StatsAPI.islinear(m::EventStudyInteract) = true
 StatsAPI.deviance(m::EventStudyInteract) = m.tss
 StatsAPI.rss(m::EventStudyInteract) = m.rss
 StatsAPI.mss(m::EventStudyInteract) = deviance(m) - rss(m)
-StatsAPI.residuals(m::EventStudyInteract) = m.residuals2
+StatsAPI.residuals(m::EventStudyInteract) = m.residuals
 
 function StatsAPI.confint(m::EventStudyInteract; level::Real = 0.95)
     scale = tdistinvcdf(StatsAPI.dof_residual(m), 1 - (1 - level) / 2)
@@ -202,3 +202,4 @@ function Base.show(io::IO, m::EventStudyInteract)
     end
     println(io,"=" ^totalwidth)
 end
+

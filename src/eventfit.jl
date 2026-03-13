@@ -40,7 +40,9 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     @nospecialize(subset::Union{Nothing, AbstractVector} = nothing))
 
     df = DataFrame(df; copycols = false)
-    
+    if dof_add != 0
+        @warn "The dof_add keyword is no longer forwarded to FixedEffectModels.reg on version 1.13 and is currently ignored."
+    end    
     # Prepare the varlists
     nvarlist = Symbol[]
     dvarlist = Symbol[]
@@ -93,7 +95,6 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     maxiter = maxiter,
     drop_singletons = drop_singletons,
     progress_bar = progress_bar,
-    dof_add = dof_add,
     subset = subset)
 
     #Caculate the weights.
@@ -119,7 +120,7 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     X = hcat([df[df[!, control_cohort] .== 0, i] for i in nvarlist]...)
     XX = X' * X
     Sxx = XX*(1/size(X)[1])
-    Sxxi = FixedEffectModels.invsym!(Sxx)
+    Sxxi = FixedEffectModels.invsym!(Symmetric(Sxx))
 
     e = hcat([df[df[!, control_cohort] .== 0, i] for i in nresidlist]...)
 
@@ -205,11 +206,11 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     # Compute rss, tss, r2, r2 adjusted
 
     rss = result.rss
-    r2 = result.r2
+    r2 = StatsAPI.r2(result)
     r2_within = result.r2_within
     tss_total = rss /(1-r2)
     mss = tss_total - rss
-    adjr2 = result.adjr2
+    adjr2 = StatsAPI.adjr2(result)
 
     # Others
     nclusters = result.nclusters
@@ -226,7 +227,7 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     nobs = result.nobs
     residuals2 = nothing
     if (save == :residuals) | (save == :all)
-        residuals2 = result.residuals2
+        residuals2 = result.residuals
     end
     iterations = result.iterations
     fe2 = result.fe
@@ -235,3 +236,9 @@ function StatsAPI.fit(::Type{EventStudyInteract},
 
     return EventStudyInteract(coef_iw, vcov_iw, vcov, nclusters, esample, residuals2, fe2, fekeys, coef_names, response_name, formula_origin, formula_schema, contrasts, nobs, dof , dof_residual, rss, tss_total, r2, adjr2, F, p, iterations, converged, r2_within, feresult)
 end
+
+
+
+
+
+

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="430" viewBox="0 0 1080 430">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="60" y="42" font-size="26" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#1f2937">Event Study Speed Comparison</text>
+<text x="60" y="67" font-size="14" font-family="Segoe UI, Arial, sans-serif" fill="#4b5563">Synthetic Sun-Abraham benchmark on the same panel. Lower is better; Julia excludes first-run JIT compilation.</text>
+<rect x="60" y="85" width="14" height="14" rx="3" fill="#1b9e77"/>
+<text x="84" y="96" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#374151">Julia EventStudyInteracts.jl</text>
+<rect x="60" y="109" width="14" height="14" rx="3" fill="#d95f02"/>
+<text x="84" y="120" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#374151">R fixest</text>
+<rect x="60" y="133" width="14" height="14" rx="3" fill="#4c78a8"/>
+<text x="84" y="144" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#374151">Stata eventstudyinteract</text>
+<line x1="240" y1="388" x2="1000" y2="388" stroke="#d1d5db" stroke-width="1"/>
+<line x1="240.0" y1="76" x2="240.0" y2="388" stroke="#f3f4f6" stroke-width="1"/>
+<text x="240.0" y="408" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#6b7280">0s</text>
+<line x1="695.0" y1="76" x2="695.0" y2="388" stroke="#f3f4f6" stroke-width="1"/>
+<text x="695.0" y="408" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#6b7280">10s</text>
+<line x1="1150.1" y1="76" x2="1150.1" y2="388" stroke="#f3f4f6" stroke-width="1"/>
+<text x="1150.1" y="408" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#6b7280">20s</text>
+<text x="60" y="176" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#111827">id + t</text>
+<text x="60" y="196" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#6b7280">Fastest: R fixest | Julia speedup vs Stata: 3.29x</text>
+<text x="224" y="228" text-anchor="end" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#374151">Julia</text>
+<rect x="240" y="212" width="219.8" height="22" rx="6" fill="#1b9e77"/>
+<text x="467.8" y="228" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111827">4.83s</text>
+<text x="224" y="262" text-anchor="end" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#374151">R fixest</text>
+<rect x="240" y="246" width="18.7" height="22" rx="6" fill="#d95f02"/>
+<text x="266.7" y="262" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111827">0.41s</text>
+<text x="224" y="296" text-anchor="end" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#374151">Stata eventstudyinteract</text>
+<rect x="240" y="280" width="722.8" height="22" rx="6" fill="#4c78a8"/>
+<text x="970.8" y="296" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111827">15.88s</text>
+<text x="60" y="330" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#111827">id + id1 + id2 + t</text>
+<text x="60" y="350" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#6b7280">Fastest: R fixest | Julia speedup vs Stata: 3.45x</text>
+<text x="224" y="382" text-anchor="end" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#374151">Julia</text>
+<rect x="240" y="366" width="220.3" height="22" rx="6" fill="#1b9e77"/>
+<text x="468.3" y="382" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111827">4.84s</text>
+<text x="224" y="416" text-anchor="end" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#374151">R fixest</text>
+<rect x="240" y="400" width="19.6" height="22" rx="6" fill="#d95f02"/>
+<text x="267.6" y="416" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111827">0.43s</text>
+<text x="224" y="450" text-anchor="end" font-size="13" font-family="Segoe UI, Arial, sans-serif" fill="#374151">Stata eventstudyinteract</text>
+<rect x="240" y="434" width="760.0" height="22" rx="6" fill="#4c78a8"/>
+<text x="1008.0" y="450" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111827">16.70s</text>
+</svg>

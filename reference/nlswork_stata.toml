@@ -1,0 +1,98 @@
+name = "nlswork_stata"
+description = "README and Stata reference output for the nlswork eventstudyinteract example."
+dataset = "dataset/nlswork.dta"
+response = "ln_wage"
+control_cohort = "never_union"
+cohort = "first_union"
+cluster = "idcode"
+absorb = ["idcode", "year"]
+rel_varlist = [
+    "g_19",
+    "g_18",
+    "g_17",
+    "g_16",
+    "g_15",
+    "g_14",
+    "g_13",
+    "g_12",
+    "g_11",
+    "g_10",
+    "g_9",
+    "g_8",
+    "g_7",
+    "g_6",
+    "g_5",
+    "g_4",
+    "g_3",
+    "g_2",
+    "g0",
+    "g1",
+    "g2",
+    "g3",
+    "g4",
+    "g5",
+    "g6",
+    "g7",
+    "g8",
+    "g9",
+    "g10",
+    "g11",
+    "g12",
+    "g13",
+    "g14",
+    "g15",
+    "g16",
+    "g17",
+    "g18",
+]
+force_zero = ["g_19"]
+atol = 1.0e-4
+rtol = 1.0e-4
+metric_atol = 5.0e-3
+metric_rtol = 5.0e-3
+
+[metrics]
+nobs = 27979
+r2 = 0.666
+f_stat = 2.81691
+r2_within = 0.030
+coef_count = 37
+
+[coefficients]
+g_19 = 0.0
+g_18 = -0.0609283
+g_17 = -0.0489819
+g_16 = -0.0680484
+g_15 = -0.135218
+g_14 = -0.103295
+g_13 = -0.0684827
+g_12 = -0.132015
+g_11 = -0.15239
+g_10 = -0.11842
+g_9 = -0.172996
+g_8 = -0.116192
+g_7 = -0.140938
+g_6 = -0.133223
+g_5 = -0.131416
+g_4 = -0.150598
+g_3 = -0.0559142
+g_2 = -0.0565837
+g0 = 0.0515795
+g1 = 0.0961542
+g2 = 0.0677024
+g3 = 0.0663372
+g4 = 0.132223
+g5 = 0.0565864
+g6 = 0.117224
+g7 = 0.072123
+g8 = 0.0666257
+g9 = 0.0929835
+g10 = 0.0675955
+g11 = 0.106953
+g12 = 0.0647985
+g13 = 0.134787
+g14 = 0.155875
+g15 = 0.0665542
+g16 = 0.181412
+g17 = 0.0233864
+g18 = -0.0477967

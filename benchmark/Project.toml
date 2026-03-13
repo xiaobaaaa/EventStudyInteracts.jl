@@ -1,0 +1,7 @@
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+EventStudyInteracts = "f9322581-1cea-4fd6-9e8e-2ae6cc4618ce"
+FixedEffectModels = "9d5cd8c9-2029-5cab-9928-427838db53e3"
+StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"

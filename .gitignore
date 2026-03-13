@@ -1,0 +1,8 @@
+Manifest.toml
+LocalPreferences.toml
+.julia_depot/
+maintenance-artifacts/
+benchmark/artifacts/
+benchmark/*.log
+.log
+benchmark/Manifest.toml
