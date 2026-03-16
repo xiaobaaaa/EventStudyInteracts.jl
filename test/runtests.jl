@@ -2,6 +2,7 @@ using DataFrames
 using Dates
 using EventStudyInteracts
 using FixedEffectModels
+using LinearAlgebra
 using ReadStatTables
 using RegressionTables
 using Test
@@ -9,6 +10,8 @@ using TOML
 
 const REPO_ROOT = normpath(joinpath(@__DIR__, ".."))
 const REFERENCE_DIR = joinpath(REPO_ROOT, "reference")
+
+include(joinpath(REPO_ROOT, "scripts", "single_cohort_equivalence.jl"))
 
 function parse_cli_options(args)
     options = Dict{String, String}()
@@ -46,6 +49,28 @@ function make_test_panel()
     end
 
     return df
+end
+
+function make_clustered_share_inputs()
+    cluster_a = repeat(1:3, inner = 4)
+    cluster_b = repeat(1:4, outer = 3)
+
+    x1 = Float64[1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1]
+    x2 = Float64[0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1]
+    e1 = 0.5 .* cluster_a .+ 0.25 .* cluster_b .+ x1
+    e2 = -0.3 .* cluster_a .+ 0.4 .* cluster_b .- x2
+
+    df = DataFrame(cluster_a = cluster_a, cluster_b = cluster_b)
+    X = hcat(x1, x2)
+    e = hcat(Float64.(e1), Float64.(e2))
+    return df, X, e
+end
+
+function manual_robust_share_vcov(X, e)
+    N = size(X, 1)
+    Sxxi = Matrix(-FixedEffectModels.invsym!(Symmetric(copy((X' * X) / N))))
+    K = kron(Matrix{Float64}(I, size(e, 2), size(e, 2)), Sxxi)
+    return Symmetric(K * Matrix(EventStudyInteracts.avar(e, X, true)) * K / N)
 end
 
 function min_skipmissing(x)
@@ -286,6 +311,59 @@ try
             @test occursin("Y", rendered)
             @test occursin("g0", rendered)
             @test occursin("R2", rendered)
+        end
+
+        @testset "Share covariance uses cluster structure" begin
+            share_df, X, e = make_clustered_share_inputs()
+
+            robust_sigma = EventStudyInteracts._share_vcov(share_df, e, X, Vcov.robust())
+            cluster1_sigma = EventStudyInteracts._share_vcov(share_df, e, X, Vcov.cluster(:cluster_a))
+            cluster2_sigma = EventStudyInteracts._share_vcov(share_df, e, X, Vcov.cluster(:cluster_a, :cluster_b))
+
+            @test robust_sigma ≈ manual_robust_share_vcov(X, e) atol = 1.0e-10 rtol = 1.0e-10
+            @test all(isfinite, diag(cluster1_sigma))
+            @test all(isfinite, diag(cluster2_sigma))
+            @test maximum(abs.(Matrix(cluster1_sigma) .- Matrix(robust_sigma))) > 1.0e-8
+            @test maximum(abs.(Matrix(cluster2_sigma) .- Matrix(robust_sigma))) > 1.0e-8
+            @test maximum(abs.(Matrix(cluster1_sigma) .- Matrix(cluster2_sigma))) > 1.0e-8
+        end
+
+        @testset "Multiway cluster eventreg" begin
+            df = make_test_panel()
+            df.industry = repeat([1, 1, 2, 2, 3, 3], inner = 5)
+
+            rel_varlist = [:g_2, :g0, :g1, :g2]
+            absorb = [:id, :t]
+            formula = term(:Y) ~ sum(fe.(term.(absorb)))
+
+            model = eventreg(
+                df,
+                formula,
+                rel_varlist,
+                :never_treat,
+                :first_treat,
+                Vcov.cluster(:id, :industry);
+                progress_bar = false,
+            )
+
+            @test model isa EventStudyInteract
+            @test size(vcov(model)) == (length(rel_varlist), length(rel_varlist))
+            @test all(isfinite, diag(vcov(model)))
+        end
+
+        @testset "Single-cohort equivalence to direct FE regression" begin
+            report = run_single_cohort_equivalence()
+
+            for row in report.results
+                cmp = row.comparison
+                @testset "$(row.label)" begin
+                    @test cmp.max_abs_coef_diff < 1.0e-10
+                    @test cmp.max_abs_se_diff < 1.0e-10
+                    @test cmp.max_abs_vcov_diff < 1.0e-10
+                    @test cmp.ate_estimate_diff < 1.0e-10
+                    @test cmp.ate_se_diff < 1.0e-10
+                end
+            end
         end
 
         @testset "Reference parity" begin

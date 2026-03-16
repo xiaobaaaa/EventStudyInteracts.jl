@@ -36,6 +36,26 @@ For local development in this repository, run `julia --project=. -e "using Pkg; 
 
 For formatted regression tables, pair this package with [RegressionTables.jl](https://github.com/jmboehm/RegressionTables.jl). The examples below use the current `v0.7.x` API; recent releases are listed on the official [`RegressionTables.jl` releases page](https://github.com/jmboehm/RegressionTables.jl/releases).
 
+## Local Validation
+
+Before pushing a maintenance update, use the following local checks:
+
+```powershell
+.\scripts\run_pkg_test.ps1
+julia --project=. .\scripts\single_cohort_equivalence.jl
+```
+
+What these two commands cover:
+
+- `scripts/run_pkg_test.ps1` bootstraps a local depot for this repository, rebuilds the local test manifest if needed, and runs the full `Pkg.test()` suite.
+- `scripts/single_cohort_equivalence.jl` generates a synthetic panel with one treated cohort and verifies that `eventreg(...)` matches a direct `FixedEffectModels.reg(...)` event-study regression exactly, including period-by-period standard errors and the aggregated `ATE(g0:g3)`.
+
+A change is ready to push to GitHub when all of the following are true:
+
+- `Pkg.test()` passes locally.
+- The single-cohort equivalence check reports zero differences.
+- The checked-in Stata reference comparison still passes.
+- README examples and benchmark claims are consistent with the current code.
 ## Maintenance
 
 This repository includes separate maintenance automation in addition to CI:
@@ -116,6 +136,40 @@ The `control_cohort` must be defined as a `Symbol`, which is a binary variable t
 
 The `cohort` must be defined as a `Symbol`, which is a categorical variable that corresponds to the initial treatment timing of each unit. If there are units that receive multiple treatments, [Sun and Abraham (2021)](https://www.sciencedirect.com/science/article/abs/pii/S030440762030378X) defines the initial treatment timing to be based on the first treatment. This categorical variable should be set to be **missing** for **never treated** units.
 
+## Single-Cohort Equivalence
+
+When all treated units start treatment in the same period, `eventreg(...)` should collapse to the same event-study regression you would estimate directly with [`FixedEffectModels.jl`](https://github.com/FixedEffects/FixedEffectModels.jl). In that special case there is only one treated cohort, so the IW weights are all equal to one and no extra share-aggregation uncertainty should remain.
+
+This repository checks that case explicitly with [`scripts/single_cohort_equivalence.jl`](scripts/single_cohort_equivalence.jl). The script generates a deterministic panel, estimates the model both ways, and compares every event-time coefficient, every standard error, and the average post-treatment effect `ATE(g0:g3)` under four covariance estimators. The same logic also runs inside `Pkg.test()`.
+
+To rerun the check locally:
+
+```powershell
+julia --project=. .\scripts\single_cohort_equivalence.jl
+```
+
+On the current checked-in synthetic panel, the maximum absolute differences are:
+
+| Vcov | max abs coef diff | max abs se diff | max abs vcov diff | abs ATE diff | abs ATE se diff |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `simple` | `0.0` | `0.0` | `0.0` | `0.0` | `0.0` |
+| `robust` | `0.0` | `0.0` | `0.0` | `0.0` | `0.0` |
+| `cluster(:id)` | `0.0` | `0.0` | `0.0` | `0.0` | `0.0` |
+| `cluster(:id, :t)` | `0.0` | `0.0` | `0.0` | `0.0` | `0.0` |
+
+For the two-way clustered case (`cluster(:id, :t)`), the period-by-period estimates and standard errors are:
+
+| Term | Direct FEM estimate | `eventreg` estimate | Direct FEM std. error | `eventreg` std. error |
+| --- | ---: | ---: | ---: | ---: |
+| `g_3` | `-0.71994246` | `-0.71994246` | `0.34987645` | `0.34987645` |
+| `g_2` | `0.067715152` | `0.067715152` | `0.32766335` | `0.32766335` |
+| `g0` | `-0.29595699` | `-0.29595699` | `0.33389899` | `0.33389899` |
+| `g1` | `2.2834434` | `2.2834434` | `0.33145837` | `0.33145837` |
+| `g2` | `2.094273` | `2.094273` | `0.34614113` | `0.34614113` |
+| `g3` | `2.6978103` | `2.6978103` | `0.33474164` | `0.33474164` |
+| `ATE(g0:g3)` | `1.6948924` | `1.6948924` | `0.33402829` | `0.33402829` |
+
+This equivalence is a sanity check for the single-cohort edge case only. With multiple treated cohorts, a direct TWFE-style event-study regression and the Sun-Abraham IW estimator generally target different objects, which is exactly why this package exists.
 ## Examples
 - You can download the `nlswork.dta` data from the repository, which is the example data used by [`eventstudyinteract`](https://github.com/lsun20/EventStudyInteract), and the method of generating variables is the same as that of [`eventstudyinteract`](https://github.com/lsun20/EventStudyInteract).
 
@@ -518,4 +572,6 @@ The workflow writes [`benchmark/results_latest.csv`](benchmark/results_latest.cs
 [Difference-in-Difference (DiD) | DiD](https://asjadnaqvi.github.io/DiD/)
 
 [fixest](https://lrberge.github.io/fixest/)
+
+
 

@@ -1,4 +1,5 @@
 Manifest.toml
+Manifest.toml.bak
 LocalPreferences.toml
 .julia_depot/
 maintenance-artifacts/

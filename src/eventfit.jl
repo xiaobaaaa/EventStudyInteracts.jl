@@ -102,33 +102,30 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     df = df[result.esample .== 1, :]
 
 
-    ff_w = zeros(0,length(nvarlist))
-    nresidlist = Symbol[]
-    
-    for yy in cohort_list
-        cohort_ind = Symbol("cohort_ind")
-        resid_yy = Symbol("resid", yy)
-        df[!, cohort_ind] .= ifelse.(coalesce.(df[!,cohort] .== yy,false) , 1 , 0)
-        formula2 = term(cohort_ind) ~ sum(term.(nvarlist)) + term(0)
-        reg1 = reg(df[df[!,control_cohort] .== 0,:], formula2)
-        bb = reg1.coef
-        ff_w  = vcat(ff_w,bb')
-        df[!,resid_yy] = residuals(reg1,df)
-        push!(nresidlist,resid_yy)
+    if ncohort == 1
+        ff_w = ones(1, nrel_times)
+        Sigma_ff = zeros(nrel_times, nrel_times)
+    else
+        ff_w = zeros(0, length(nvarlist))
+        nresidlist = Symbol[]
+        stage2df = df[df[!, control_cohort] .== 0, :]
+
+        for yy in cohort_list
+            cohort_ind = Symbol("cohort_ind")
+            resid_yy = Symbol("resid", yy)
+            stage2df[!, cohort_ind] .= ifelse.(coalesce.(stage2df[!,cohort] .== yy,false) , 1 , 0)
+            formula2 = term(cohort_ind) ~ sum(term.(nvarlist)) + term(0)
+            reg1 = reg(stage2df, formula2)
+            bb = reg1.coef
+            ff_w  = vcat(ff_w,bb')
+            stage2df[!,resid_yy] = residuals(reg1, stage2df)
+            push!(nresidlist,resid_yy)
+        end
+
+        X = Matrix{Float64}(stage2df[:, nvarlist])
+        e = Matrix{Float64}(stage2df[:, nresidlist])
+        Sigma_ff = _share_vcov(stage2df, e, X, vcov)
     end
-    
-    X = hcat([df[df[!, control_cohort] .== 0, i] for i in nvarlist]...)
-    XX = X' * X
-    Sxx = XX*(1/size(X)[1])
-    Sxxi = FixedEffectModels.invsym!(Symmetric(Sxx))
-
-    e = hcat([df[df[!, control_cohort] .== 0, i] for i in nresidlist]...)
-
-    S_robust = avar(e, X, true) # using the robust estimator
-
-    KSxxi = kron(Matrix{Float64}(I, ncohort, ncohort), Sxxi)
-
-    Sigma_ff = KSxxi * S_robust * KSxxi/ size(X)[1]
 
     b = result.coef
 
