@@ -9,6 +9,8 @@ permissions:
 jobs:
   CompatHelper:
     runs-on: ubuntu-latest
+    env:
+      COMPATHELPER_PRIV: ${{ secrets.COMPATHELPER_PRIV }}
     steps:
       - name: Check if Julia is already available in the PATH
         id: julia_in_path
@@ -34,11 +36,15 @@ jobs:
           version = "3"
           Pkg.add(; name, uuid, version)
         shell: julia --color=yes {0}
+      - name: Skip CompatHelper when COMPATHELPER_PRIV is not configured
+        if: ${{ env.COMPATHELPER_PRIV == '' }}
+        run: echo "Skipping CompatHelper because the COMPATHELPER_PRIV secret is not configured."
       - name: Run CompatHelper
+        if: ${{ env.COMPATHELPER_PRIV != '' }}
         run: |
           import CompatHelper
           CompatHelper.main()
         shell: julia --color=yes {0}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMPATHELPER_PRIV: ${{ secrets.COMPATHELPER_PRIV }}
+          COMPATHELPER_PRIV: ${{ env.COMPATHELPER_PRIV }}
