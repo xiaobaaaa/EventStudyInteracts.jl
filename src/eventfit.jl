@@ -1,3 +1,49 @@
+function _nonzero_relmask(df::DataFrame, nvarlist::Vector{Symbol})
+    isempty(nvarlist) && return Bool[]
+    X = Matrix{Float64}(df[:, nvarlist])
+    return vec(any(.!iszero.(X), dims = 1))
+end
+
+function _estimable_relmask(vcov_mat::AbstractMatrix, nrel_times::Integer, ncohort::Integer)
+    nrel_times == 0 && return Bool[]
+    interaction_dim = nrel_times * ncohort
+    diag_v = diag(Matrix(vcov_mat)[1:interaction_dim, 1:interaction_dim])
+    keep_rel = falses(nrel_times)
+    for i in 1:nrel_times
+        block = ((i - 1) * ncohort + 1):(i * ncohort)
+        keep_rel[i] = any(.!isnan.(diag_v[block]))
+    end
+    return keep_rel
+end
+
+function _zero_omitted_rowscols(vcov_mat::AbstractMatrix)
+    VV = Matrix{Float64}(vcov_mat)
+    omitted = isnan.(diag(VV))
+    kept = .!omitted
+
+    if any(kept) && any(isnan.(VV[kept, kept]))
+        throw(ArgumentError("Non-omitted entries of the interacted-regression covariance matrix contain NaN values."))
+    end
+
+    if any(omitted)
+        VV[omitted, :] .= 0.0
+        VV[:, omitted] .= 0.0
+    end
+
+    return VV
+end
+
+function _reinsert_rel_outputs(coef_reduced::AbstractVector, vcov_reduced::AbstractMatrix, keep_rel::AbstractVector{Bool}, full_size::Integer)
+    coef_full = zeros(Float64, full_size)
+    vcov_full = fill(NaN, full_size, full_size)
+
+    keep_idx = findall(keep_rel)
+    coef_full[keep_idx] .= coef_reduced
+    vcov_full[keep_idx, keep_idx] .= Matrix(vcov_reduced)
+
+    return coef_full, Symmetric(vcov_full)
+end
+
 function eventreg(@nospecialize(df),     
     @nospecialize(formula::FormulaTerm),
     @nospecialize(rel_varlist::Vector{Symbol}),
@@ -53,6 +99,14 @@ function StatsAPI.fit(::Type{EventStudyInteract},
         df[!,n_l][df[!,control_cohort].==1] .= 0
         push!(nvarlist,n_l)
     end
+    full_dvarlist = copy(dvarlist)
+
+    prekeep_rel = _nonzero_relmask(df, nvarlist)
+    if !all(prekeep_rel)
+        nvarlist = nvarlist[prekeep_rel]
+        dvarlist = dvarlist[prekeep_rel]
+    end
+    isempty(nvarlist) && error("No estimable relative-time indicators remain after removing unsupported columns.")
 
     cohort_list = unique(df[!,cohort][df[!,control_cohort].==0])
     cohort_list = sort(cohort_list)
@@ -97,10 +151,20 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     progress_bar = progress_bar,
     subset = subset)
 
+    postkeep_rel = _estimable_relmask(result.vcov, nrel_times, ncohort)
+    if !all(postkeep_rel)
+        nvarlist = nvarlist[postkeep_rel]
+        dvarlist = dvarlist[postkeep_rel]
+    end
+    isempty(nvarlist) && error("No estimable relative-time indicators remain after fitting the interacted regression.")
+
+    nrel_times = length(nvarlist)
+    rel_keep_mask = falses(length(rel_varlist))
+    rel_keep_mask[findall(prekeep_rel)] .= postkeep_rel
+
     #Caculate the weights.
 
     df = df[result.esample .== 1, :]
-
 
     if ncohort == 1
         ff_w = ones(1, nrel_times)
@@ -127,25 +191,12 @@ function StatsAPI.fit(::Type{EventStudyInteract},
         Sigma_ff = _share_vcov(stage2df, e, X, vcov)
     end
 
-    b = result.coef
+    interaction_keep = repeat(postkeep_rel, inner = ncohort)
+    interaction_idx = findall(interaction_keep)
+    b = result.coef[interaction_idx]
 
-    V = diag(result.vcov)
-
-    replace!(V, NaN => 0)
-
-    # Convert the delta estimate vector to a matrix where each column is a relative time
-    end_ = 0
-    evt_bb = zeros(ncohort,0)
-    evt_VV = zeros(ncohort,0)
-
-    for i in 1:nrel_times
-        start = end_ + 1
-        end_ = start + ncohort - 1
-        b_i = b[start:end_]
-        evt_bb = hcat(evt_bb, b_i)
-        V_i = V[start:end_]
-        evt_VV = hcat(evt_VV, V_i)
-    end
+    # Convert the interacted coefficients to a matrix where each column is a relative time
+    evt_bb = reshape(b, ncohort, nrel_times)
 
     # Take weighted average for IW estimators
     w = ff_w
@@ -154,10 +205,8 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     nc, nr = size(w)
 
     # Ptwise variance from cohort share estimation and interacted regression
-    VV = result.vcov # VCV from the interacted regression
-    replace!(VV, NaN => 0)
-
-    VV = VV[1:nr*nc, 1:nr*nc] # in case reports _cons
+    VV_full = _zero_omitted_rowscols(result.vcov) # VCV from the interacted regression
+    VV = VV_full[interaction_idx, interaction_idx]
 
     wlong = w'.*repeat(ee(1, nr)', 1, nc)
 
@@ -179,10 +228,9 @@ function StatsAPI.fit(::Type{EventStudyInteract},
         end
     end
 
-    coef_iw = vec(b_iw')
-
-    vcov_iw = Symmetric(V_iw)
-    vcov_iw_diag = diag(vcov_iw)
+    coef_iw_reduced = vec(b_iw')
+    vcov_iw_reduced = Symmetric(V_iw)
+    coef_iw, vcov_iw = _reinsert_rel_outputs(coef_iw_reduced, vcov_iw_reduced, rel_keep_mask, length(rel_varlist))
 
 
 
@@ -213,7 +261,7 @@ function StatsAPI.fit(::Type{EventStudyInteract},
     nclusters = result.nclusters
     esample = result.esample
     fekeys = result.fekeys
-    coef_names = [string(x) for x in dvarlist]
+    coef_names = [string(x) for x in full_dvarlist]
     # coef_names = coefnames
     response_name = responsename(result)
     # response_name, coef_names = coefnames(formula_schema)

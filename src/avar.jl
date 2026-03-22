@@ -19,6 +19,28 @@ end
 
 _ginvsym(X::AbstractMatrix) = Matrix(-FixedEffectModels.invsym!(Symmetric(copy(X))))
 
+function _share_vcov_expand(reduced::AbstractMatrix, keep_cols::AbstractVector{Bool}, nresid::Integer)
+    full_cols = length(keep_cols)
+    keep_idx = findall(keep_cols)
+    expanded_idx = Int[]
+
+    for resid_idx in 1:nresid
+        append!(expanded_idx, (resid_idx - 1) * full_cols .+ keep_idx)
+    end
+
+    full = zeros(Float64, full_cols * nresid, full_cols * nresid)
+    full[expanded_idx, expanded_idx] .= Matrix(reduced)
+    return Symmetric(full)
+end
+
+function _share_vcov_dispatch(sample::DataFrame, emat::Matrix{Float64}, Xmat::Matrix{Float64}, vcov::CovarianceEstimator)
+    vcov isa Vcov.SimpleCovariance && return _share_vcov_simple(emat, Xmat)
+    vcov isa Vcov.RobustCovariance && return _share_vcov_robust(emat, Xmat)
+    vcov isa Vcov.ClusterCovariance && return _share_vcov_cluster(sample, emat, Xmat, vcov)
+
+    throw(ArgumentError("Unsupported covariance estimator $(typeof(vcov)) for the cohort-share step."))
+end
+
 function _share_vcov(table, e::AbstractMatrix, X::AbstractMatrix, vcov::CovarianceEstimator)
     sample = DataFrame(table; copycols = false)
     Xmat = Matrix{Float64}(X)
@@ -31,11 +53,13 @@ function _share_vcov(table, e::AbstractMatrix, X::AbstractMatrix, vcov::Covarian
         emat = emat[keep, :]
     end
 
-    vcov isa Vcov.SimpleCovariance && return _share_vcov_simple(emat, Xmat)
-    vcov isa Vcov.RobustCovariance && return _share_vcov_robust(emat, Xmat)
-    vcov isa Vcov.ClusterCovariance && return _share_vcov_cluster(sample, emat, Xmat, vcov)
+    keep_cols = vec(any(.!iszero.(Xmat), dims = 1))
+    if all(keep_cols)
+        return _share_vcov_dispatch(sample, emat, Xmat, vcov)
+    end
 
-    throw(ArgumentError("Unsupported covariance estimator $(typeof(vcov)) for the cohort-share step."))
+    reduced = _share_vcov_dispatch(sample, emat, Xmat[:, keep_cols], vcov)
+    return _share_vcov_expand(reduced, keep_cols, size(emat, 2))
 end
 
 function _share_vcov_simple(e::Matrix{Float64}, X::Matrix{Float64})

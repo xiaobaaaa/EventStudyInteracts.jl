@@ -351,6 +351,39 @@ try
             @test all(isfinite, diag(vcov(model)))
         end
 
+        @testset "Zero relative-time columns do not poison clustered share vcov" begin
+            df = make_test_panel()
+            df.g_3 = zeros(Int, nrow(df))
+
+            formula = term(:Y) ~ sum(fe.(term.([:id, :t])))
+            baseline = eventreg(
+                df,
+                formula,
+                [:g_2, :g0, :g1, :g2],
+                :never_treat,
+                :first_treat,
+                Vcov.cluster(:id);
+                progress_bar = false,
+            )
+            with_zero = eventreg(
+                df,
+                formula,
+                [:g_3, :g_2, :g0, :g1, :g2],
+                :never_treat,
+                :first_treat,
+                Vcov.cluster(:id);
+                progress_bar = false,
+            )
+
+            @test coefnames(with_zero) == string.([:g_3, :g_2, :g0, :g1, :g2])
+            @test coef(with_zero)[1] == 0.0
+            @test isnan(diag(vcov(with_zero))[1])
+            @test all(isnan, vcov(with_zero)[1, :])
+            @test all(isnan, vcov(with_zero)[:, 1])
+            @test coef(with_zero)[2:end] ≈ coef(baseline) atol = 1.0e-10 rtol = 1.0e-10
+            @test diag(vcov(with_zero))[2:end] ≈ diag(vcov(baseline)) atol = 1.0e-10 rtol = 1.0e-10
+        end
+
         @testset "Single-cohort equivalence to direct FE regression" begin
             report = run_single_cohort_equivalence()
 
